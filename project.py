@@ -13,6 +13,13 @@ cap = cv2.VideoCapture(camera)
 cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
 cv2.resizeWindow('frame', (1000, 500))
 
+# Functions to calculate coordinates
+def x_axis(percent):
+    return int(percent * window_width / 100)
+
+def y_axis(percent):
+    return int(percent * window_height / 100)
+
 
 # Function to overlay movie frame
 def overlayFrame(frame, smallFrame, frameWidth, frameHeight, x, y):
