@@ -20,7 +20,6 @@ def x_axis(percent):
 def y_axis(percent):
     return int(percent * window_height / 100)
 
-
 # Function to overlay movie frame
 def overlayFrame(frame, smallFrame, frameWidth, frameHeight, x, y):
     smallFrame_resized = cv2.resize(smallFrame, (frameWidth, frameHeight))
@@ -29,20 +28,29 @@ def overlayFrame(frame, smallFrame, frameWidth, frameHeight, x, y):
     y_offset = int(y * window_height / 100)
     frame[y_offset:y_offset+movie_height, x_offset:x_offset+movie_width] = smallFrame_resized
 
+# Variable to control pause and play of the movie
+overlay_paused = False
+
 while True:
     success, frame = cap.read()
-    movie_success, movie_frame = movie.read()
-
     window_height, window_width = frame.shape[:2]
+    
+    # Read the movie frame only if not paused
+    if not overlay_paused:
+        movie_success, movie_frame = movie.read()
 
-    if movie_success:
+    # Overlay movie frame if not paused and movie frame exists
+    if movie_success and movie_frame is not None:
         overlayFrame(frame, movie_frame, 200, 150, 50, 10)
 
     cv2.imshow('frame', frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
         break
-    
+    elif key == ord('p'):
+        overlay_paused = not overlay_paused  # Toggle pause/play when 'P' is pressed
+
 cap.release()
 movie.release()
 cv2.destroyAllWindows()
