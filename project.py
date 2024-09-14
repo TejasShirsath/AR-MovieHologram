@@ -1,56 +1,84 @@
 import cv2
+import time
+from ffpyplayer.player import MediaPlayer
+import threading
 
-# camera variables 
-mobileCamera = "http://192.168.1.100:8080/video"
-laptopCamera = 0
-camera = laptopCamera
+cap = cv2.VideoCapture(0)
 
-# Load the movie and the camera feed
-movie = cv2.VideoCapture('demo.mp4')
-cap = cv2.VideoCapture(camera)
+globalFrame = None
+globalFrameLock = threading.Lock()
+x, y = 10, 10  # Variables for overlay position
+overlayActive = True  # Flag to check if overlay video is active
+pause = False  # Global pause variable
 
-# Resize the window
-cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-cv2.resizeWindow('frame', (1000, 500))
+def overlayFrame(videoFile, frameWidth, frameHeight):
+    global globalFrame, overlayActive, pause
+    video = cv2.VideoCapture(videoFile)
+    player = MediaPlayer(videoFile)
+    fps = video.get(cv2.CAP_PROP_FPS)
+    frame_time = 1 / fps
 
-# Functions to calculate coordinates
-def x_axis(percent):
-    return int(percent * window_width / 100)
+    while True:
+        start_time = time.time()
 
-def y_axis(percent):
-    return int(percent * window_height / 100)
+        # Respect the global pause state
+        if not pause:
+            ret, frame = video.read()
+            if not ret:
+                # Set flag to False when video ends
+                overlayActive = False
+                break
 
-# Function to overlay movie frame
-def overlayFrame(frame, smallFrame, frameWidth, frameHeight, x, y):
-    smallFrame_resized = cv2.resize(smallFrame, (frameWidth, frameHeight))
-    movie_height, movie_width = smallFrame_resized.shape[:2]
-    x_offset = int(x * window_width / 100)
-    y_offset = int(y * window_height / 100)
-    frame[y_offset:y_offset+movie_height, x_offset:x_offset+movie_width] = smallFrame_resized
+            resizedFrame = cv2.resize(frame, (frameWidth, frameHeight))
+            with globalFrameLock:
+                globalFrame = resizedFrame
 
-# Variable to control pause and play of the movie
-overlay_paused = False
+        # Pause or resume the audio when pause is toggled
+        player.set_pause(pause)
 
-while True:
-    success, frame = cap.read()
-    window_height, window_width = frame.shape[:2]
-    
-    # Read the movie frame only if not paused
-    if not overlay_paused:
-        movie_success, movie_frame = movie.read()
+        # Audio frame synchronization
+        audio_frame, val = player.get_frame()
+        if val != 'eof' and audio_frame is not None:
+            img, t = audio_frame
 
-    # Overlay movie frame if not paused and movie frame exists
-    if movie_success and movie_frame is not None:
-        overlayFrame(frame, movie_frame, 200, 150, 50, 10)
+        # Wait to maintain synchronization
+        elapsed_time = time.time() - start_time
+        if elapsed_time < frame_time:
+            time.sleep(frame_time - elapsed_time)
 
-    cv2.imshow('frame', frame)
+    video.release()
+    player.close_player()
+    globalFrame = None
 
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q'):
-        break
-    elif key == ord('p'):
-        overlay_paused = not overlay_paused  # Toggle pause/play when 'P' is pressed
 
-cap.release()
-movie.release()
-cv2.destroyAllWindows()
+def main():
+    global globalFrame, overlayActive, pause
+    while True:
+        success, frame = cap.read()
+        if not success:
+            break
+        frame = cv2.resize(frame, (1000, 500))
+
+        # Overlay the video frame onto the camera feed
+        with globalFrameLock:
+            if globalFrame is not None and overlayActive:
+                frame[y:y + globalFrame.shape[0], x:x + globalFrame.shape[1]] = globalFrame
+
+        cv2.imshow('Camera with Overlay', frame)
+
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('p'):
+            pause = not pause  # Toggle the pause state
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    thread1 = threading.Thread(target=main)
+    thread2 = threading.Thread(target=overlayFrame, args=('demo.mp4', 200, 200))
+    thread1.start()
+    thread2.start()
+    thread1.join()
+    thread2.join()
