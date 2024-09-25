@@ -10,7 +10,7 @@ while True:
 
     hands, img = detector.findHands(img)
 
-    # Check if at least one hand is detected
+    # Check hand detect
     if hands:
         hand = hands[0]
         lmList = hand["lmList"]  # List of 21 landmarks points
@@ -18,8 +18,12 @@ while True:
         thumbTip = lmList[4]  # Thumb tip (landmark 4)
 
         # Print the coordinates of the index finger tip
-        print(f"Index Finger Coordinates: x={indexFingerTip[0]}, y={indexFingerTip[1]}")
-        print(f"Thumb Finger Coordinates: x={thumbTip[0]}, y={indexFingerTip[1]}")
+        # print(f"Index Finger Coordinates: x={indexFingerTip[0]}, y={indexFingerTip[1]}")
+        # print(f"Thumb Finger Coordinates: x={thumbTip[0]}, y={indexFingerTip[1]}")
+
+        if abs(thumbTip[0] - indexFingerTip[0]) < 15 and abs(thumbTip[1] - indexFingerTip[1]) < 15:
+            print(abs(thumbTip[0] - indexFingerTip[0]))
+            print("TRUE")
 
 
     # Display the image with detected hands
